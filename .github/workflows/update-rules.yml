@@ -70,4 +70,4 @@ jobs:
         with:
           commit_message: "Auto-update: GeositeCN .mrs rules [$(date +'%Y-%m-%d')]"
           file_pattern: 'rules/*.mrs' # 只提交 mrs 文件
-          branch: main
+          branch: master
