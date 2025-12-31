@@ -21,10 +21,10 @@
 请将 URL 替换为你需要的文件路径：
 
 **GitHub 原始链接**:
-`https://raw.githubusercontent.com/isalikai/rules_mrs/main/rules/<分类>/<文件名>.mrs`
+`https://raw.githubusercontent.com/isalikai/rules_mrs/master/rules/<分类>/<文件名>.mrs`
 
 **jsDelivr 加速链接 (推荐国内使用)**:
-`https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@main/rules/<分类>/<文件名>.mrs`
+`https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@master/rules/<分类>/<文件名>.mrs`
 
 ### 示例：使用 GeositeCN 规则
 
@@ -37,7 +37,7 @@ rule-providers:
     behavior: domain
     format: mrs
     # 注意路径对应 rules/GeositeCN/...
-    url: "[https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@main/rules/GeositeCN/GeositeCN_Domain.mrs](https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@main/rules/GeositeCN/GeositeCN_Domain.mrs)"
+    url: "[https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@master/rules/GeositeCN/GeositeCN_Domain.mrs](https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@master/rules/GeositeCN/GeositeCN_Domain.mrs)"
     path: ./rules/GeositeCN/GeositeCN_Domain.mrs
     interval: 86400
 
