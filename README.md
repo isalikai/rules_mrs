@@ -14,7 +14,7 @@
 
 | 规则名称 | 原始格式 | 编译格式 | 原始链接 (GitHub) | 加速链接 (jsDelivr) |
 | :--- | :---: | :---: | :--- | :--- |
-| **Geosite CN** | YAML | **MRS** | [点击复制](https://raw.githubusercontent.com/isalikai/rules_mrs/main/rules/geosite_cn.mrs) | [点击复制](https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@main/rules/geosite_cn.mrs) |
+| **Geosite CN** | YAML | **MRS** | [点击复制](https://raw.githubusercontent.com/isalikai/rules_mrs/master/rules/geosite_cn.mrs) | [点击复制](https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@master/rules/geosite_cn.mrs) |
 
 > **提示**：如果在国内网络环境使用，建议使用 **加速链接 (jsDelivr)**。
 
@@ -33,7 +33,7 @@ rule-providers:
     behavior: domain
     format: mrs           # 关键：指定格式为 mrs
     path: ./rules/geosite_cn.mrs
-    url: "[https://cdn.jsdelivr.net/gh/](https://cdn.jsdelivr.net/gh/)isalikai/rules_mrs@main/rules/geosite_cn.mrs"
+    url: "[https://cdn.jsdelivr.net/gh/](https://cdn.jsdelivr.net/gh/)isalikai/rules_mrs@master/rules/geosite_cn.mrs"
     interval: 86400       # 每天更新一次
 
 ```
