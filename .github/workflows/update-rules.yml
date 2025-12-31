@@ -1,0 +1,73 @@
+name: Update Mihomo Rule Set (.mrs)
+
+on:
+  schedule:
+    # 每天北京时间早上 6 点运行 (UTC 22:00)
+    - cron: '0 22 * * *'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 需要写权限来提交生成的文件
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Mihomo (Download Latest Core)
+        run: |
+          # 获取最新版本号
+          LATEST_VERSION=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" | jq -r .tag_name)
+          echo "Downloading Mihomo $LATEST_VERSION..."
+          
+          # 下载 Linux AMD64 版本
+          wget "https://github.com/MetaCubeX/mihomo/releases/download/$LATEST_VERSION/mihomo-linux-amd64-$LATEST_VERSION.gz" -O mihomo.gz
+          
+          # 解压并赋予执行权限
+          gzip -d mihomo.gz
+          chmod +x mihomo
+          ./mihomo -v
+
+      - name: Download Source Rule (YAML)
+        run: |
+          # 创建规则目录
+          mkdir -p ./rules
+          
+          # 下载源文件
+          echo "Downloading GeositeCN_Domain.yaml..."
+          wget -O ./rules/source_cn.yaml "https://raw.githubusercontent.com/Accademia/Additional_Rule_For_Clash/refs/heads/main/GeositeCN/GeositeCN_Domain.yaml"
+
+          # [可选] 简单检查文件内容，确保包含 payload 字段
+          if grep -q "payload:" ./rules/source_cn.yaml; then
+            echo "Source file looks valid."
+          else
+            echo "Error: Source file does not contain 'payload:' field."
+            exit 1
+          fi
+
+      - name: Convert to .mrs
+        run: |
+          # 语法: ./mihomo convert-ruleset <类型> <格式> <输入文件> <输出文件>
+          # 类型: domain (域名) 或 ipcidr (IP)
+          # 格式: yaml
+          
+          echo "Converting to .mrs..."
+          ./mihomo convert-ruleset domain yaml ./rules/source_cn.yaml ./rules/geosite_cn.mrs
+          
+          # 检查生成结果
+          ls -lh ./rules/geosite_cn.mrs
+
+      - name: Cleanup
+        run: |
+          # 删除临时文件，只保留 .mrs
+          rm mihomo
+          rm ./rules/source_cn.yaml
+
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Auto-update: GeositeCN .mrs rules [$(date +'%Y-%m-%d')]"
+          file_pattern: 'rules/*.mrs' # 只提交 mrs 文件
+          branch: main
