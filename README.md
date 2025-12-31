@@ -1,68 +1,59 @@
-# Mihomo Rule Set (.mrs) Auto-Converter 
+# Mihomo Rule Set (.mrs) Mirror
 
-本项目通过 GitHub Actions 每天自动抓取上游优秀的规则列表，并调用 **Mihomo (Clash Meta)** 内核将其编译为二进制的 `.mrs` (Mihomo Rule Set) 格式。
+[![Update All Mihomo Rules](https://github.com/isalikai/rules_mrs/actions/workflows/update-rules.yml/badge.svg)](https://github.com/isalikai/rules_mrs/actions/workflows/update-rules.yml)
 
-`.mrs` 格式相比传统的 `.yaml` 或 `.txt` 规则集，具有**加载速度更快**、**内存占用更低**的优势，特别适合在性能有限的软路由或移动设备上使用。
+本项目自动镜像并转换 [Accademia/Additional_Rule_For_Clash](https://github.com/Accademia/Additional_Rule_For_Clash) 仓库中的所有规则为 Mihomo `.mrs` 二进制格式。
 
-## 📅 更新策略
+✅ **保持原仓库目录结构** ✅ **每天自动更新** ✅ **包含 Domain 和 IP 规则**
 
-- **更新频率**：每天北京时间早上 06:00 自动运行
-- **上游源**：[Accademia/Additional_Rule_For_Clash](https://github.com/Accademia/Additional_Rule_For_Clash)
-- **目标文件**：`GeositeCN_Domain.yaml` (转换为 `geosite_cn.mrs`)
+## 📂 规则目录结构
 
-## 🚀 规则订阅地址
+所有规则均位于 `rules/` 目录下，子文件夹结构与上游仓库一致。
 
-| 规则名称 | 原始格式 | 编译格式 | 原始链接 (GitHub) | 加速链接 (jsDelivr) |
-| :--- | :---: | :---: | :--- | :--- |
-| **Geosite CN** | YAML | **MRS** | [点击复制](https://raw.githubusercontent.com/isalikai/rules_mrs/master/rules/geosite_cn.mrs) | [点击复制](https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@master/rules/geosite_cn.mrs) |
+例如：
+- 上游: `GeositeCN/GeositeCN_Domain.yaml`
+- 本地: `rules/GeositeCN/GeositeCN_Domain.mrs`
 
-> **提示**：如果在国内网络环境使用，建议使用 **加速链接 (jsDelivr)**。
+## 🚀 使用方法
 
-## 🛠️ 如何在 Mihomo (Clash Meta) 中使用
+### 通用引用格式
 
-在你的配置文件（通常是 `config.yaml`）中，按照以下方式添加 `rule-providers` 和 `rules`。
+请将 URL 替换为你需要的文件路径：
 
-### 1. 添加 Rule Provider
+**GitHub 原始链接**:
+`https://raw.githubusercontent.com/isalikai/rules_mrs/main/rules/<分类>/<文件名>.mrs`
 
-注意 `format` 必须设置为 `mrs`。
+**jsDelivr 加速链接 (推荐国内使用)**:
+`https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@main/rules/<分类>/<文件名>.mrs`
+
+### 示例：使用 GeositeCN 规则
+
+**config.yaml 配置:**
 
 ```yaml
 rule-providers:
   geosite-cn:
     type: http
     behavior: domain
-    format: mrs           # 关键：指定格式为 mrs
-    path: ./rules/geosite_cn.mrs
-    url: "[https://cdn.jsdelivr.net/gh/](https://cdn.jsdelivr.net/gh/)isalikai/rules_mrs@master/rules/geosite_cn.mrs"
-    interval: 86400       # 每天更新一次
+    format: mrs
+    # 注意路径对应 rules/GeositeCN/...
+    url: "[https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@main/rules/GeositeCN/GeositeCN_Domain.mrs](https://cdn.jsdelivr.net/gh/isalikai/rules_mrs@main/rules/GeositeCN/GeositeCN_Domain.mrs)"
+    path: ./rules/GeositeCN/GeositeCN_Domain.mrs
+    interval: 86400
 
-```
-
-### 2. 应用规则
-
-在 `rules` 部分引用上面定义的 provider。
-
-```yaml
 rules:
-  # 将 geosite-cn 中的域名直连
   - RULE-SET,geosite-cn,DIRECT
-  
-  # ... 其他规则 ...
-  - MATCH,PROXY
 
 ```
 
-## ⚙️ 编译原理
+## 🛠️ 转换逻辑
 
-本项目使用 GitHub Actions 自动化流程：
+脚本会自动根据文件名判断规则类型：
 
-1. 下载最新的 Mihomo Kernel。
-2. 下载上游 YAML 规则文件。
-3. 执行 `mihomo convert-ruleset domain yaml input.yaml output.mrs` 命令。
-4. 将生成的 `.mrs` 文件推送到本仓库。
+* 文件名包含 `IP` 或 `ip` -> 转换为 `ipcidr` 类型
+* 其他 -> 默认为 `domain` 类型
 
 ## 🙏 致谢
 
-* 规则来源：[Accademia/Additional_Rule_For_Clash](https://github.com/Accademia/Additional_Rule_For_Clash)
-* 编译工具：[MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo)
-
+* 规则源: [Accademia/Additional_Rule_For_Clash](https://github.com/Accademia/Additional_Rule_For_Clash)
+* 工具: [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo)
