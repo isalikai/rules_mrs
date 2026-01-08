@@ -26,37 +26,26 @@ jobs:
 
       - name: Clone Upstream & Convert
         run: |
-          # 1. 克隆上游仓库到临时目录 'upstream'
+          # 克隆上游仓库到临时目录
           git clone --depth 1 https://github.com/Accademia/Additional_Rule_For_Clash.git upstream
 
-          # 2. 清理旧规则（可选，保留目录结构以免git报错，或者直接依靠覆盖）
-          # mkdir -p rules 
-
-          # 3. 遍历上游所有 yaml 文件
+          # 遍历上游所有 yaml 文件
           find upstream -type f -name "*.yaml" | while read source_file; do
-            # 获取相对路径 (例如: GeositeCN/GeositeCN_Domain.yaml)
             rel_path=${source_file#upstream/}
-            
-            # 获取目录名和文件名
             dir_name=$(dirname "$rel_path")
-            base_name=$(basename "$rel_path" .yaml)
-            
-            # 准备目标目录
+            base_name=$(basename "$source_file" .yaml)
+
             target_dir="rules/$dir_name"
             mkdir -p "$target_dir"
-            
-            # 4. 判断规则类型 (根据文件名猜测)
-            # 默认视为 domain，如果文件名包含 'IP' 或 'ip' 则视为 ipcidr
+
+            # 判断规则类型
             rule_type="domain"
             if [[ "$base_name" == *"IP"* ]] || [[ "$base_name" == *"ip"* ]]; then
               rule_type="ipcidr"
             fi
-            
-            # 5. 执行转换
+
             target_file="$target_dir/$base_name.mrs"
             echo "🔄 Converting: $rel_path -> $target_file (Type: $rule_type)"
-            
-            # 运行转换命令，如果失败不中断脚本但会输出错误
             ./mihomo convert-ruleset $rule_type yaml "$source_file" "$target_file" || echo "⚠️ Failed: $source_file"
           done
 
@@ -83,11 +72,11 @@ jobs:
 
           echo "✅ Google Voice mrs generated: $TARGET_FILE"
 
-
-      - name: Cleanup
+      - name: Add self rules to git
         run: |
-          rm mihomo
-          rm -rf upstream
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add self/
 
       - name: Commit and Push Changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -96,5 +85,9 @@ jobs:
           file_pattern: |
             rules/
             self/
-          add: true
+          add: false  # 已经手动 add 过了
 
+      - name: Cleanup
+        run: |
+          rm mihomo
+          rm -rf upstream
