@@ -60,6 +60,29 @@ jobs:
             ./mihomo convert-ruleset $rule_type yaml "$source_file" "$target_file" || echo "⚠️ Failed: $source_file"
           done
 
+      - name: Convert Google Voice (self ruleset)
+        run: |
+          set -e
+
+          # 1. 定义目录
+          SELF_DIR="self/google"
+          mkdir -p "$SELF_DIR"
+
+          # 2. 下载 Google Voice Shadowrocket 规则
+          SRC_URL="https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/GoogleVoice/GoogleVoice.list"
+          SRC_FILE="$SELF_DIR/GoogleVoice.list"
+          TARGET_FILE="$SELF_DIR/GoogleVoice.mrs"
+
+          echo "⬇️ Downloading Google Voice rule..."
+          curl -fsSL "$SRC_URL" -o "$SRC_FILE"
+
+          # 3. 转换为 mrs（classical + text）
+          echo "🔄 Converting Google Voice to .mrs..."
+          ./mihomo convert-ruleset classical text "$SRC_FILE" "$TARGET_FILE"
+
+          echo "✅ Google Voice mrs generated: $TARGET_FILE"
+
+
       - name: Cleanup
         run: |
           rm mihomo
@@ -69,4 +92,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto-update: Sync all rules to .mrs [$(date +'%Y-%m-%d')]"
-          file_pattern: 'rules/' # 提交 rules 文件夹下的所有变动
+          file_pattern: |
+            rules/
+            self/
+
