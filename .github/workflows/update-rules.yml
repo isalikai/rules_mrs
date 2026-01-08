@@ -24,12 +24,10 @@ jobs:
           chmod +x mihomo
           ./mihomo -v
 
-      - name: Clone Upstream & Convert
+      - name: Convert Upstream Rules
         run: |
-          # 克隆上游仓库到临时目录
           git clone --depth 1 https://github.com/Accademia/Additional_Rule_For_Clash.git upstream
 
-          # 遍历上游所有 yaml 文件
           find upstream -type f -name "*.yaml" | while read source_file; do
             rel_path=${source_file#upstream/}
             dir_name=$(dirname "$rel_path")
@@ -38,7 +36,6 @@ jobs:
             target_dir="rules/$dir_name"
             mkdir -p "$target_dir"
 
-            # 判断规则类型
             rule_type="domain"
             if [[ "$base_name" == *"IP"* ]] || [[ "$base_name" == *"ip"* ]]; then
               rule_type="ipcidr"
@@ -52,7 +49,6 @@ jobs:
       - name: Convert Google Voice (self ruleset)
         run: |
           set -e
-
           SELF_DIR="self/google"
           mkdir -p "$SELF_DIR"
 
@@ -72,20 +68,12 @@ jobs:
 
           echo "✅ Google Voice mrs generated: $TARGET_FILE"
 
-      - name: Add self rules to git
-        run: |
+          # 🔹 手动 git add、commit、push，确保 self 文件夹提交成功
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add self/
-
-      - name: Commit and Push Changes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Auto-update: Sync all rules to .mrs [$(date +'%Y-%m-%d')]"
-          file_pattern: |
-            rules/
-            self/
-          add: false  # 已经手动 add 过了
+          git add "$SELF_DIR"
+          git commit -m "Auto-update self rules: GoogleVoice [$(date +'%Y-%m-%d')]"
+          git push
 
       - name: Cleanup
         run: |
