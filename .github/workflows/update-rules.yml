@@ -96,4 +96,5 @@ jobs:
           file_pattern: |
             rules/
             self/
+          add: true
 
