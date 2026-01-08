@@ -76,12 +76,13 @@ jobs:
           curl -fsSL "$SRC_URL" -o "$RAW_FILE"
 
           echo "🧹 Cleaning invalid lines..."
-          grep -E '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD|IP-CIDR),' "$RAW_FILE" > "$CLEAN_FILE"
+          grep -E '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD),' "$RAW_FILE" > "$CLEAN_FILE"
 
-          echo "🔄 Converting to .mrs..."
-          ./mihomo convert-ruleset classical text "$CLEAN_FILE" "$TARGET_FILE"
+          echo "🔄 Converting to .mrs (domain behavior)..."
+          ./mihomo convert-ruleset domain text "$CLEAN_FILE" "$TARGET_FILE"
 
           echo "✅ Google Voice mrs generated: $TARGET_FILE"
+
 
       - name: Cleanup
         run: |
