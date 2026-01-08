@@ -64,24 +64,24 @@ jobs:
         run: |
           set -e
 
-          # 1. 定义目录
           SELF_DIR="self/google"
           mkdir -p "$SELF_DIR"
 
-          # 2. 下载 Google Voice Shadowrocket 规则
           SRC_URL="https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/GoogleVoice/GoogleVoice.list"
-          SRC_FILE="$SELF_DIR/GoogleVoice.list"
+          RAW_FILE="$SELF_DIR/GoogleVoice.raw"
+          CLEAN_FILE="$SELF_DIR/GoogleVoice.clean"
           TARGET_FILE="$SELF_DIR/GoogleVoice.mrs"
 
           echo "⬇️ Downloading Google Voice rule..."
-          curl -fsSL "$SRC_URL" -o "$SRC_FILE"
+          curl -fsSL "$SRC_URL" -o "$RAW_FILE"
 
-          # 3. 转换为 mrs（classical + text）
-          echo "🔄 Converting Google Voice to .mrs..."
-          ./mihomo convert-ruleset classical text "$SRC_FILE" "$TARGET_FILE"
+          echo "🧹 Cleaning invalid lines..."
+          grep -E '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD|IP-CIDR),' "$RAW_FILE" > "$CLEAN_FILE"
+
+          echo "🔄 Converting to .mrs..."
+          ./mihomo convert-ruleset classical text "$CLEAN_FILE" "$TARGET_FILE"
 
           echo "✅ Google Voice mrs generated: $TARGET_FILE"
-
 
       - name: Cleanup
         run: |
