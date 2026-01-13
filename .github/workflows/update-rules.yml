@@ -27,7 +27,7 @@ jobs:
       - name: Convert Upstream Rules
         run: |
           git clone --depth 1 https://github.com/Accademia/Additional_Rule_For_Clash.git upstream
-
+          
           find upstream -type f -name "*.yaml" | while read source_file; do
             rel_path=${source_file#upstream/}
             dir_name=$(dirname "$rel_path")
@@ -48,7 +48,7 @@ jobs:
 
       - name: Convert Google Voice (self ruleset)
         run: |
-          set -e
+          # 注意：这里去掉了 set -e 和 git 提交命令
           SELF_DIR="self/google"
           mkdir -p "$SELF_DIR"
 
@@ -67,15 +67,29 @@ jobs:
           ./mihomo convert-ruleset domain text "$CLEAN_FILE" "$TARGET_FILE"
 
           echo "✅ Google Voice mrs generated: $TARGET_FILE"
+          
+          # 清理临时文件，只保留 .mrs
+          rm "$RAW_FILE" "$CLEAN_FILE"
 
-          # 🔹 手动 git add、commit、push，确保 self 文件夹提交成功
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$SELF_DIR"
-          git commit -m "Auto-update self rules: GoogleVoice [$(date +'%Y-%m-%d')]"
-          git push
-
-      - name: Cleanup
+      - name: Cleanup Binaries
         run: |
           rm mihomo
           rm -rf upstream
+
+      - name: Commit and Push Changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 添加生成的规则目录
+          git add rules self
+          
+          # 核心修复：检查暂存区是否有变化
+          if git diff --staged --quiet; then
+            echo "⚠️ No changes detected. Skipping commit."
+            exit 0
+          else
+            echo "✅ Changes detected. Committing..."
+            git commit -m "Auto-update rules: $(date +'%Y-%m-%d')"
+            git push
+          fi
