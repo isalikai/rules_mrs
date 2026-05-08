@@ -19,7 +19,7 @@ jobs:
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y jq gzip wget curl
+          sudo apt-get install -y jq gzip wget curl golang-go
 
           LATEST_VERSION=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" | jq -r .tag_name)
           echo "Downloading Mihomo $LATEST_VERSION..."
@@ -28,6 +28,18 @@ jobs:
           gzip -d mihomo.gz
           chmod +x mihomo
           ./mihomo -v
+
+      - name: Setup v2dat
+        run: |
+          set -e
+
+          echo "🔧 Installing v2dat..."
+          go install github.com/urlesistiana/v2dat@latest
+
+          cp ~/go/bin/v2dat ./v2dat
+          chmod +x ./v2dat
+
+          ./v2dat --help || true
 
       - name: Convert Upstream Domain/IP Rules
         run: |
@@ -66,10 +78,99 @@ jobs:
             fi
           done
 
+      - name: Convert Geosite Porn Rules
+        run: |
+          set -e
+
+          SELF_DIR="self/porn"
+          WORK_DIR="tmp-geosite"
+
+          mkdir -p "$SELF_DIR" "$WORK_DIR"
+
+          GEOSITE_DAT="$WORK_DIR/geosite.dat"
+          RAW_TXT="$WORK_DIR/geosite_category-porn.txt"
+          CLEAN_FILE="$WORK_DIR/Porn_Domain.list"
+          TARGET_FILE="$SELF_DIR/Porn_Domain.mrs"
+
+          echo "⬇️ Downloading latest geosite.dat from Loyalsoldier..."
+          curl -fsSL "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat" -o "$GEOSITE_DAT"
+
+          echo "📦 Unpacking geosite:category-porn..."
+          ./v2dat unpack geosite -d "$WORK_DIR" -f category-porn "$GEOSITE_DAT"
+
+          echo "📂 Files in work dir:"
+          ls -lah "$WORK_DIR"
+
+          if [ ! -f "$RAW_TXT" ]; then
+            echo "❌ geosite_category-porn.txt not found"
+            echo "📂 Current files:"
+            find "$WORK_DIR" -type f -maxdepth 2 -print
+            exit 1
+          fi
+
+          echo "📄 Raw geosite:category-porn preview:"
+          head -n 30 "$RAW_TXT"
+
+          echo "🧹 Converting geosite text to Mihomo domain text format..."
+
+          rm -f "$CLEAN_FILE"
+          touch "$CLEAN_FILE"
+
+          while IFS= read -r line; do
+            line="$(echo "$line" | sed 's/\r$//' | xargs)"
+
+            if [ -z "$line" ]; then
+              continue
+            fi
+
+            case "$line" in
+              full:*)
+                domain="${line#full:}"
+                echo "DOMAIN,$domain" >> "$CLEAN_FILE"
+                ;;
+              keyword:*)
+                keyword="${line#keyword:}"
+                echo "DOMAIN-KEYWORD,$keyword" >> "$CLEAN_FILE"
+                ;;
+              regexp:*)
+                echo "⚠️ Skip regexp rule unsupported by mrs domain text: $line"
+                ;;
+              *)
+                echo "DOMAIN-SUFFIX,$line" >> "$CLEAN_FILE"
+                ;;
+            esac
+          done < "$RAW_TXT"
+
+          sort -u -o "$CLEAN_FILE" "$CLEAN_FILE"
+
+          COUNT=$(wc -l < "$CLEAN_FILE" | tr -d ' ')
+          echo "📊 Porn domain rule count: $COUNT"
+
+          if [ "$COUNT" -le 0 ]; then
+            echo "❌ No valid porn domain rules found"
+            exit 1
+          fi
+
+          echo "📄 Clean Mihomo rule preview:"
+          head -n 30 "$CLEAN_FILE"
+
+          echo "🔄 Converting Porn_Domain.list to Porn_Domain.mrs..."
+          ./mihomo convert-ruleset domain text "$CLEAN_FILE" "$TARGET_FILE"
+
+          if [[ ! -s "$TARGET_FILE" ]]; then
+            echo "❌ Porn_Domain.mrs is empty"
+            exit 1
+          fi
+
+          echo "✅ Porn_Domain.mrs generated:"
+          ls -lh "$TARGET_FILE"
+
+          rm -rf "$WORK_DIR"
+
       - name: Cleanup
         run: |
-          rm -f mihomo
-          rm -rf upstream
+          rm -f mihomo v2dat
+          rm -rf upstream tmp-geosite
 
       - name: Commit and Push Changes
         run: |
