@@ -17,18 +17,28 @@ jobs:
 
       - name: Setup Mihomo
         run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y jq gzip wget
+
           LATEST_VERSION=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" | jq -r .tag_name)
           echo "Downloading Mihomo $LATEST_VERSION..."
+
           wget "https://github.com/MetaCubeX/mihomo/releases/download/$LATEST_VERSION/mihomo-linux-amd64-$LATEST_VERSION.gz" -O mihomo.gz
           gzip -d mihomo.gz
           chmod +x mihomo
           ./mihomo -v
 
-      - name: Convert Upstream Rules
+      - name: Convert Upstream Domain/IP Rules
         run: |
+          set -e
+
           git clone --depth 1 https://github.com/Accademia/Additional_Rule_For_Clash.git upstream
-          
-          find upstream -type f -name "*.yaml" | while read source_file; do
+
+          rm -rf rules
+          mkdir -p rules
+
+          find upstream -type f \( -name "*_Domain.yaml" -o -name "*_IP.yaml" \) | while read source_file; do
             rel_path=${source_file#upstream/}
             dir_name=$(dirname "$rel_path")
             base_name=$(basename "$source_file" .yaml)
@@ -36,19 +46,30 @@ jobs:
             target_dir="rules/$dir_name"
             mkdir -p "$target_dir"
 
-            rule_type="domain"
-            if [[ "$base_name" == *"IP"* ]] || [[ "$base_name" == *"ip"* ]]; then
+            if [[ "$base_name" == *_Domain ]]; then
+              rule_type="domain"
+            elif [[ "$base_name" == *_IP ]]; then
               rule_type="ipcidr"
+            else
+              echo "⏭️ Skip unsupported file: $rel_path"
+              continue
             fi
 
             target_file="$target_dir/$base_name.mrs"
+
             echo "🔄 Converting: $rel_path -> $target_file (Type: $rule_type)"
-            ./mihomo convert-ruleset $rule_type yaml "$source_file" "$target_file" || echo "⚠️ Failed: $source_file"
+            ./mihomo convert-ruleset "$rule_type" yaml "$source_file" "$target_file"
+
+            if [[ ! -s "$target_file" ]]; then
+              echo "❌ Empty mrs generated: $target_file"
+              exit 1
+            fi
           done
 
-      - name: Convert Google Voice (self ruleset)
+      - name: Convert Google Voice self ruleset
         run: |
-          # 注意：这里去掉了 set -e 和 git 提交命令
+          set -e
+
           SELF_DIR="self/google"
           mkdir -p "$SELF_DIR"
 
@@ -60,36 +81,36 @@ jobs:
           echo "⬇️ Downloading Google Voice rule..."
           curl -fsSL "$SRC_URL" -o "$RAW_FILE"
 
-          echo "🧹 Cleaning invalid lines..."
+          echo "🧹 Cleaning valid domain lines..."
           grep -E '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD),' "$RAW_FILE" > "$CLEAN_FILE"
 
-          echo "🔄 Converting to .mrs (domain behavior)..."
+          echo "🔄 Converting to .mrs..."
           ./mihomo convert-ruleset domain text "$CLEAN_FILE" "$TARGET_FILE"
 
-          echo "✅ Google Voice mrs generated: $TARGET_FILE"
-          
-          # 清理临时文件，只保留 .mrs
+          if [[ ! -s "$TARGET_FILE" ]]; then
+            echo "❌ GoogleVoice.mrs is empty"
+            exit 1
+          fi
+
           rm "$RAW_FILE" "$CLEAN_FILE"
 
-      - name: Cleanup Binaries
+      - name: Cleanup
         run: |
-          rm mihomo
+          rm -f mihomo
           rm -rf upstream
 
       - name: Commit and Push Changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 添加生成的规则目录
+
           git add rules self
-          
-          # 核心修复：检查暂存区是否有变化
+
           if git diff --staged --quiet; then
             echo "⚠️ No changes detected. Skipping commit."
             exit 0
           else
             echo "✅ Changes detected. Committing..."
-            git commit -m "Auto-update rules: $(date +'%Y-%m-%d')"
+            git commit -m "Auto-update mrs rules: $(date +'%Y-%m-%d')"
             git push
           fi
