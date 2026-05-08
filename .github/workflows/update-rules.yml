@@ -19,7 +19,7 @@ jobs:
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y jq gzip wget
+          sudo apt-get install -y jq gzip wget curl
 
           LATEST_VERSION=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" | jq -r .tag_name)
           echo "Downloading Mihomo $LATEST_VERSION..."
@@ -74,25 +74,77 @@ jobs:
           mkdir -p "$SELF_DIR"
 
           SRC_URL="https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/GoogleVoice/GoogleVoice.list"
+
           RAW_FILE="$SELF_DIR/GoogleVoice.raw"
-          CLEAN_FILE="$SELF_DIR/GoogleVoice.clean"
-          TARGET_FILE="$SELF_DIR/GoogleVoice.mrs"
+
+          DOMAIN_FILE="$SELF_DIR/GoogleVoice_Domain.list"
+          IP_FILE="$SELF_DIR/GoogleVoice_IP.list"
+
+          DOMAIN_MRS="$SELF_DIR/GoogleVoice_Domain.mrs"
+          IP_MRS="$SELF_DIR/GoogleVoice_IP.mrs"
 
           echo "⬇️ Downloading Google Voice rule..."
           curl -fsSL "$SRC_URL" -o "$RAW_FILE"
 
-          echo "🧹 Cleaning valid domain lines..."
-          grep -E '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD),' "$RAW_FILE" > "$CLEAN_FILE"
+          echo "📄 Source preview:"
+          head -n 30 "$RAW_FILE"
 
-          echo "🔄 Converting to .mrs..."
-          ./mihomo convert-ruleset domain text "$CLEAN_FILE" "$TARGET_FILE"
+          echo "🧹 Extracting domain rules..."
 
-          if [[ ! -s "$TARGET_FILE" ]]; then
-            echo "❌ GoogleVoice.mrs is empty"
-            exit 1
+          grep -E '^[[:space:]]*(-[[:space:]]*)?(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD),' "$RAW_FILE" \
+            | sed 's/^[[:space:]]*-[[:space:]]*//' \
+            | sed 's/\r$//' \
+            | sed 's/[[:space:]]//g' \
+            | sort -u > "$DOMAIN_FILE" || true
+
+          echo "🧹 Extracting ip rules..."
+
+          grep -E '^[[:space:]]*(-[[:space:]]*)?(IP-CIDR|IP-CIDR6),' "$RAW_FILE" \
+            | sed 's/^[[:space:]]*-[[:space:]]*//' \
+            | sed 's/\r$//' \
+            | sed 's/[[:space:]]//g' \
+            | sort -u > "$IP_FILE" || true
+
+          DOMAIN_COUNT=$(wc -l < "$DOMAIN_FILE" | tr -d ' ')
+          IP_COUNT=$(wc -l < "$IP_FILE" | tr -d ' ')
+
+          echo "📊 Domain rule count: $DOMAIN_COUNT"
+          echo "📊 IP rule count: $IP_COUNT"
+
+          rm -f "$DOMAIN_MRS" "$IP_MRS"
+          rm -f "$SELF_DIR/GoogleVoice.mrs"
+
+          if [ "$DOMAIN_COUNT" -gt 0 ]; then
+            echo "🔄 Converting domain rules to mrs..."
+            ./mihomo convert-ruleset domain text "$DOMAIN_FILE" "$DOMAIN_MRS"
+
+            if [ ! -s "$DOMAIN_MRS" ]; then
+              echo "❌ GoogleVoice_Domain.mrs is empty"
+              exit 1
+            fi
+
+            echo "✅ Domain mrs generated:"
+            ls -lh "$DOMAIN_MRS"
+          else
+            echo "⚠️ No domain rules found. Skipping domain mrs."
           fi
 
-          rm "$RAW_FILE" "$CLEAN_FILE"
+          if [ "$IP_COUNT" -gt 0 ]; then
+            echo "🔄 Converting ip rules to mrs..."
+            ./mihomo convert-ruleset ipcidr text "$IP_FILE" "$IP_MRS"
+
+            if [ ! -s "$IP_MRS" ]; then
+              echo "❌ GoogleVoice_IP.mrs is empty"
+              exit 1
+            fi
+
+            echo "✅ IP mrs generated:"
+            ls -lh "$IP_MRS"
+          else
+            echo "⚠️ No ip rules found. Skipping ip mrs."
+          fi
+
+          rm -f "$RAW_FILE" "$DOMAIN_FILE" "$IP_FILE"
 
       - name: Cleanup
         run: |
