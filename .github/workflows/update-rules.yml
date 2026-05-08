@@ -35,7 +35,7 @@ jobs:
 
           git clone --depth 1 https://github.com/Accademia/Additional_Rule_For_Clash.git upstream
 
-          rm -rf rules
+          rm -rf rules self
           mkdir -p rules
 
           find upstream -type f \( -name "*_Domain.yaml" -o -name "*_IP.yaml" \) | while read source_file; do
@@ -66,86 +66,6 @@ jobs:
             fi
           done
 
-      - name: Convert Google Voice self ruleset
-        run: |
-          set -e
-
-          SELF_DIR="self/google"
-          mkdir -p "$SELF_DIR"
-
-          SRC_URL="https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Shadowrocket/GoogleVoice/GoogleVoice.list"
-
-          RAW_FILE="$SELF_DIR/GoogleVoice.raw"
-
-          DOMAIN_FILE="$SELF_DIR/GoogleVoice_Domain.list"
-          IP_FILE="$SELF_DIR/GoogleVoice_IP.list"
-
-          DOMAIN_MRS="$SELF_DIR/GoogleVoice_Domain.mrs"
-          IP_MRS="$SELF_DIR/GoogleVoice_IP.mrs"
-
-          echo "⬇️ Downloading Google Voice rule..."
-          curl -fsSL "$SRC_URL" -o "$RAW_FILE"
-
-          echo "📄 Source preview:"
-          head -n 30 "$RAW_FILE"
-
-          echo "🧹 Extracting domain rules..."
-
-          grep -E '^[[:space:]]*(-[[:space:]]*)?(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD),' "$RAW_FILE" \
-            | sed 's/^[[:space:]]*-[[:space:]]*//' \
-            | sed 's/\r$//' \
-            | sed 's/[[:space:]]//g' \
-            | sort -u > "$DOMAIN_FILE" || true
-
-          echo "🧹 Extracting ip rules..."
-
-          grep -E '^[[:space:]]*(-[[:space:]]*)?(IP-CIDR|IP-CIDR6),' "$RAW_FILE" \
-            | sed 's/^[[:space:]]*-[[:space:]]*//' \
-            | sed 's/\r$//' \
-            | sed 's/[[:space:]]//g' \
-            | sort -u > "$IP_FILE" || true
-
-          DOMAIN_COUNT=$(wc -l < "$DOMAIN_FILE" | tr -d ' ')
-          IP_COUNT=$(wc -l < "$IP_FILE" | tr -d ' ')
-
-          echo "📊 Domain rule count: $DOMAIN_COUNT"
-          echo "📊 IP rule count: $IP_COUNT"
-
-          rm -f "$DOMAIN_MRS" "$IP_MRS"
-          rm -f "$SELF_DIR/GoogleVoice.mrs"
-
-          if [ "$DOMAIN_COUNT" -gt 0 ]; then
-            echo "🔄 Converting domain rules to mrs..."
-            ./mihomo convert-ruleset domain text "$DOMAIN_FILE" "$DOMAIN_MRS"
-
-            if [ ! -s "$DOMAIN_MRS" ]; then
-              echo "❌ GoogleVoice_Domain.mrs is empty"
-              exit 1
-            fi
-
-            echo "✅ Domain mrs generated:"
-            ls -lh "$DOMAIN_MRS"
-          else
-            echo "⚠️ No domain rules found. Skipping domain mrs."
-          fi
-
-          if [ "$IP_COUNT" -gt 0 ]; then
-            echo "🔄 Converting ip rules to mrs..."
-            ./mihomo convert-ruleset ipcidr text "$IP_FILE" "$IP_MRS"
-
-            if [ ! -s "$IP_MRS" ]; then
-              echo "❌ GoogleVoice_IP.mrs is empty"
-              exit 1
-            fi
-
-            echo "✅ IP mrs generated:"
-            ls -lh "$IP_MRS"
-          else
-            echo "⚠️ No ip rules found. Skipping ip mrs."
-          fi
-
-          rm -f "$RAW_FILE" "$DOMAIN_FILE" "$IP_FILE"
-
       - name: Cleanup
         run: |
           rm -f mihomo
@@ -156,7 +76,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add rules self
+          git add -A rules self
 
           if git diff --staged --quiet; then
             echo "⚠️ No changes detected. Skipping commit."
