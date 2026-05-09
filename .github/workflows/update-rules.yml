@@ -85,6 +85,100 @@ jobs:
           rm -rf rules self
           mkdir -p rules
 
+          cat > convert_upstream.py.b64 <<'B64'
+          aW1wb3J0IGlwYWRkcmVzcwppbXBvcnQgb3MKaW1wb3J0IHJlCmZyb20gcGF0aGxpYiBpbXBvcnQg
+          UGF0aAoKc291cmNlX2ZpbGUgPSBQYXRoKG9zLmVudmlyb25bIlNPVVJDRV9GSUxFIl0pCmRvbWFp
+          bl9saXN0ID0gUGF0aChvcy5lbnZpcm9uWyJET01BSU5fTElTVCJdKQppcF9saXN0ID0gUGF0aChv
+          cy5lbnZpcm9uWyJJUF9MSVNUIl0pCgpkb21haW5fcnVsZXMgPSBzZXQoKQppcF9ydWxlcyA9IHNl
+          dCgpCgpkZWYgc3RyaXBfY29tbWVudChsaW5lOiBzdHIpIC0+IHN0cjoKICAgIGluX3F1b3RlID0g
+          RmFsc2UKICAgIHF1b3RlX2NoYXIgPSAiIgogICAgcmVzdWx0ID0gW10KCiAgICBmb3IgY2ggaW4g
+          bGluZToKICAgICAgICBpZiBjaCBpbiAoIiciLCAnIicpOgogICAgICAgICAgICBpZiBub3QgaW5f
+          cXVvdGU6CiAgICAgICAgICAgICAgICBpbl9xdW90ZSA9IFRydWUKICAgICAgICAgICAgICAgIHF1
+          b3RlX2NoYXIgPSBjaAogICAgICAgICAgICBlbGlmIHF1b3RlX2NoYXIgPT0gY2g6CiAgICAgICAg
+          ICAgICAgICBpbl9xdW90ZSA9IEZhbHNlCiAgICAgICAgICAgICAgICBxdW90ZV9jaGFyID0gIiIK
+          ICAgICAgICAgICAgcmVzdWx0LmFwcGVuZChjaCkKICAgICAgICAgICAgY29udGludWUKCiAgICAg
+          ICAgaWYgY2ggPT0gIiMiIGFuZCBub3QgaW5fcXVvdGU6CiAgICAgICAgICAgIGJyZWFrCgogICAg
+          ICAgIHJlc3VsdC5hcHBlbmQoY2gpCgogICAgcmV0dXJuICIiLmpvaW4ocmVzdWx0KQoKZGVmIGNs
+          ZWFuX3ZhbHVlKHZhbHVlOiBzdHIpIC0+IHN0cjoKICAgIHZhbHVlID0gdmFsdWUuc3RyaXAoKQog
+          ICAgdmFsdWUgPSB2YWx1ZS5zdHJpcCgiJ1wiIikKICAgIHZhbHVlID0gdmFsdWUuc3RyaXAoKQog
+          ICAgdmFsdWUgPSB2YWx1ZS5zdHJpcCgiW10iKQogICAgdmFsdWUgPSB2YWx1ZS5zdHJpcCgpCiAg
+          ICB2YWx1ZSA9IHZhbHVlLnN0cmlwKCInXCIiKQogICAgdmFsdWUgPSB2YWx1ZS5zdHJpcCgpCiAg
+          ICByZXR1cm4gdmFsdWUKCmRlZiBpc19kb21haW5fdGV4dF9ydWxlKGxpbmU6IHN0cikgLT4gYm9v
+          bDoKICAgIGlmIG5vdCBsaW5lOgogICAgICAgIHJldHVybiBGYWxzZQogICAgaWYgbGluZS5zdGFy
+          dHN3aXRoKCgiKy4iLCAiLiIsICIqLiIpKToKICAgICAgICByZXR1cm4gVHJ1ZQogICAgaWYgIioi
+          IGluIGxpbmU6CiAgICAgICAgcmV0dXJuIFRydWUKICAgIGlmICIsIiBpbiBsaW5lOgogICAgICAg
+          IHJldHVybiBGYWxzZQogICAgaWYgIjoiIGluIGxpbmU6CiAgICAgICAgcmV0dXJuIEZhbHNlCiAg
+          ICBpZiAiLyIgaW4gbGluZToKICAgICAgICByZXR1cm4gRmFsc2UKICAgIGlmICIgIiBpbiBsaW5l
+          OgogICAgICAgIHJldHVybiBGYWxzZQogICAgaWYgIi4iIG5vdCBpbiBsaW5lOgogICAgICAgIHJl
+          dHVybiBGYWxzZQogICAgcmV0dXJuIFRydWUKCmRlZiBhZGRfZG9tYWluX2V4YWN0KHZhbHVlOiBz
+          dHIpOgogICAgdmFsdWUgPSBjbGVhbl92YWx1ZSh2YWx1ZSkubG93ZXIoKS5zdHJpcCgiLiIpCiAg
+          ICBpZiB2YWx1ZSBhbmQgIi4iIGluIHZhbHVlIGFuZCAiOiIgbm90IGluIHZhbHVlIGFuZCAiLyIg
+          bm90IGluIHZhbHVlOgogICAgICAgIGRvbWFpbl9ydWxlcy5hZGQodmFsdWUpCgpkZWYgYWRkX2Rv
+          bWFpbl9zdWZmaXgodmFsdWU6IHN0cik6CiAgICB2YWx1ZSA9IGNsZWFuX3ZhbHVlKHZhbHVlKS5s
+          b3dlcigpLnN0cmlwKCIuIikKICAgIGlmIHZhbHVlIGFuZCAiLiIgaW4gdmFsdWUgYW5kICI6IiBu
+          b3QgaW4gdmFsdWUgYW5kICIvIiBub3QgaW4gdmFsdWU6CiAgICAgICAgZG9tYWluX3J1bGVzLmFk
+          ZChmIisue3ZhbHVlfSIpCgpkZWYgYWRkX2RvbWFpbl9rZXl3b3JkKHZhbHVlOiBzdHIpOgogICAg
+          dmFsdWUgPSBjbGVhbl92YWx1ZSh2YWx1ZSkubG93ZXIoKQogICAgaWYgdmFsdWUgYW5kICI6IiBu
+          b3QgaW4gdmFsdWUgYW5kICIvIiBub3QgaW4gdmFsdWUgYW5kICIsIiBub3QgaW4gdmFsdWU6CiAg
+          ICAgICAgZG9tYWluX3J1bGVzLmFkZChmIip7dmFsdWV9KiIpCgpkZWYgYWRkX2RvbWFpbl90ZXh0
+          KHZhbHVlOiBzdHIpOgogICAgdmFsdWUgPSBjbGVhbl92YWx1ZSh2YWx1ZSkubG93ZXIoKQogICAg
+          aWYgbm90IHZhbHVlOgogICAgICAgIHJldHVybgoKICAgIGlmIHZhbHVlLnN0YXJ0c3dpdGgoIisu
+          Iik6CiAgICAgICAgcmVzdCA9IHZhbHVlWzI6XS5zdHJpcCgiLiIpCiAgICAgICAgaWYgcmVzdCBh
+          bmQgIi4iIGluIHJlc3Q6CiAgICAgICAgICAgIGRvbWFpbl9ydWxlcy5hZGQoZiIrLntyZXN0fSIp
+          CiAgICAgICAgcmV0dXJuCgogICAgaWYgdmFsdWUuc3RhcnRzd2l0aCgiLiIpOgogICAgICAgIHJl
+          c3QgPSB2YWx1ZVsxOl0uc3RyaXAoIi4iKQogICAgICAgIGlmIHJlc3QgYW5kICIuIiBpbiByZXN0
+          OgogICAgICAgICAgICBkb21haW5fcnVsZXMuYWRkKGYiKy57cmVzdH0iKQogICAgICAgIHJldHVy
+          bgoKICAgIGlmIHZhbHVlLnN0YXJ0c3dpdGgoIiouIik6CiAgICAgICAgcmVzdCA9IHZhbHVlWzI6
+          XS5zdHJpcCgiLiIpCiAgICAgICAgaWYgcmVzdCBhbmQgIi4iIGluIHJlc3Q6CiAgICAgICAgICAg
+          IGRvbWFpbl9ydWxlcy5hZGQoZiIrLntyZXN0fSIpCiAgICAgICAgcmV0dXJuCgogICAgaWYgIioi
+          IGluIHZhbHVlOgogICAgICAgIGRvbWFpbl9ydWxlcy5hZGQodmFsdWUpCiAgICAgICAgcmV0dXJu
+          CgogICAgYWRkX2RvbWFpbl9leGFjdCh2YWx1ZSkKCmRlZiBhZGRfaXAodmFsdWU6IHN0cik6CiAg
+          ICB2YWx1ZSA9IGNsZWFuX3ZhbHVlKHZhbHVlKQoKICAgIGlmIG5vdCB2YWx1ZToKICAgICAgICBy
+          ZXR1cm4KCiAgICAjIHJlbW92ZSBuby1yZXNvbHZlIG9yIG90aGVyIHRoaXJkLWZpZWxkIGxlZnRv
+          dmVycwogICAgdmFsdWUgPSB2YWx1ZS5zcGxpdCgiLCIpWzBdLnN0cmlwKCkKICAgIHZhbHVlID0g
+          dmFsdWUuc3RyaXAoIltdIikuc3RyaXAoIidcIiIpLnN0cmlwKCkKCiAgICBpZiBub3QgdmFsdWU6
+          CiAgICAgICAgcmV0dXJuCgogICAgdHJ5OgogICAgICAgIGlmICIvIiBpbiB2YWx1ZToKICAgICAg
+          ICAgICAgbmV0ID0gaXBhZGRyZXNzLmlwX25ldHdvcmsodmFsdWUsIHN0cmljdD1GYWxzZSkKICAg
+          ICAgICBlbHNlOgogICAgICAgICAgICBpcCA9IGlwYWRkcmVzcy5pcF9hZGRyZXNzKHZhbHVlKQog
+          ICAgICAgICAgICBpZiBpcC52ZXJzaW9uID09IDQ6CiAgICAgICAgICAgICAgICBuZXQgPSBpcGFk
+          ZHJlc3MuaXBfbmV0d29yayhmInt2YWx1ZX0vMzIiLCBzdHJpY3Q9RmFsc2UpCiAgICAgICAgICAg
+          IGVsc2U6CiAgICAgICAgICAgICAgICBuZXQgPSBpcGFkZHJlc3MuaXBfbmV0d29yayhmInt2YWx1
+          ZX0vMTI4Iiwgc3RyaWN0PUZhbHNlKQogICAgICAgIGlwX3J1bGVzLmFkZChzdHIobmV0KSkKICAg
+          IGV4Y2VwdCBWYWx1ZUVycm9yOgogICAgICAgIHByaW50KGYi4pqg77iPIFNraXAgaW52YWxpZCBJ
+          UC9DSURSOiB7dmFsdWV9IikKCmZvciByYXdfbGluZSBpbiBzb3VyY2VfZmlsZS5yZWFkX3RleHQo
+          ZW5jb2Rpbmc9InV0Zi04IiwgZXJyb3JzPSJpZ25vcmUiKS5zcGxpdGxpbmVzKCk6CiAgICBsaW5l
+          ID0gcmF3X2xpbmUucmVwbGFjZSgiXHIiLCAiIikKICAgIGxpbmUgPSBzdHJpcF9jb21tZW50KGxp
+          bmUpCiAgICBsaW5lID0gbGluZS5zdHJpcCgpCgogICAgaWYgbm90IGxpbmU6CiAgICAgICAgY29u
+          dGludWUKCiAgICBpZiBsaW5lLnN0YXJ0c3dpdGgoIi0iKToKICAgICAgICBsaW5lID0gbGluZVsx
+          Ol0uc3RyaXAoKQoKICAgIGxpbmUgPSBsaW5lLnN0cmlwKCkKICAgIGlmIG5vdCBsaW5lIG9yIGxp
+          bmUgPT0gInBheWxvYWQ6IjoKICAgICAgICBjb250aW51ZQoKICAgICMgbm9ybWFsaXplIFlBTUwg
+          aW5saW5lIGFycmF5IGl0ZW0gbGlrZSBbMTcuMjUzLjQuMTI1XQogICAgbGluZSA9IGNsZWFuX3Zh
+          bHVlKGxpbmUpCgogICAgIyBjbGFzc2ljYWwgcnVsZXM6IERPTUFJTix4eHggLyBET01BSU4tU1VG
+          RklYLHh4eCAvIElQLUNJRFIseHh4CiAgICBpZiAiLCIgaW4gbGluZToKICAgICAgICBwYXJ0cyA9
+          IFtwLnN0cmlwKCkgZm9yIHAgaW4gbGluZS5zcGxpdCgiLCIpXQogICAgICAgIHJ1bGVfdHlwZSA9
+          IHBhcnRzWzBdLnVwcGVyKCkucmVwbGFjZSgiICIsICIiKQogICAgICAgIHZhbHVlID0gcGFydHNb
+          MV0gaWYgbGVuKHBhcnRzKSA+IDEgZWxzZSAiIgoKICAgICAgICBpZiBydWxlX3R5cGUgPT0gIkRP
+          TUFJTiI6CiAgICAgICAgICAgIGFkZF9kb21haW5fZXhhY3QodmFsdWUpCiAgICAgICAgZWxpZiBy
+          dWxlX3R5cGUgPT0gIkRPTUFJTi1TVUZGSVgiOgogICAgICAgICAgICBhZGRfZG9tYWluX3N1ZmZp
+          eCh2YWx1ZSkKICAgICAgICBlbGlmIHJ1bGVfdHlwZSA9PSAiRE9NQUlOLUtFWVdPUkQiOgogICAg
+          ICAgICAgICBhZGRfZG9tYWluX2tleXdvcmQodmFsdWUpCiAgICAgICAgZWxpZiBydWxlX3R5cGUg
+          aW4gKCJJUC1DSURSIiwgIklQLUNJRFI2Iik6CiAgICAgICAgICAgIGFkZF9pcCh2YWx1ZSkKCiAg
+          ICAgICAgY29udGludWUKCiAgICAjIGJlaGF2aW9yOiBkb21haW4gdGV4dCBydWxlcywgZS5nLiAr
+          LndlaXl1bi5jb20gLyAuZXhhbXBsZS5jb20gLyBleGFtcGxlLmNvbQogICAgaWYgaXNfZG9tYWlu
+          X3RleHRfcnVsZShsaW5lKToKICAgICAgICBhZGRfZG9tYWluX3RleHQobGluZSkKICAgICAgICBj
+          b250aW51ZQoKICAgICMgcmF3IElQL0NJRFIgbGluZQogICAgbWF5YmVfaXAgPSBjbGVhbl92YWx1
+          ZShsaW5lKQogICAgaWYgcmUuZnVsbG1hdGNoKHIiWzAtOWEtZkEtRjouXSsoL1xkKyk/IiwgbWF5
+          YmVfaXApOgogICAgICAgIGFkZF9pcChtYXliZV9pcCkKCmRvbWFpbl9saXN0LndyaXRlX3RleHQo
+          IlxuIi5qb2luKHNvcnRlZChkb21haW5fcnVsZXMpKSArICgiXG4iIGlmIGRvbWFpbl9ydWxlcyBl
+          bHNlICIiKSwgZW5jb2Rpbmc9InV0Zi04IikKaXBfbGlzdC53cml0ZV90ZXh0KCJcbiIuam9pbihz
+          b3J0ZWQoaXBfcnVsZXMpKSArICgiXG4iIGlmIGlwX3J1bGVzIGVsc2UgIiIpLCBlbmNvZGluZz0i
+          dXRmLTgiKQoKcHJpbnQoZiLwn5OKIERvbWFpbiBjb3VudDoge2xlbihkb21haW5fcnVsZXMpfSIp
+          CnByaW50KGYi8J+TiiBJUCBjb3VudDoge2xlbihpcF9ydWxlcyl9IikK
+          B64
+          base64 -d convert_upstream.py.b64 > convert_upstream.py
+          python3 -m py_compile convert_upstream.py
+          echo "✅ convert_upstream.py syntax OK"
+
           find upstream -type f -name "*.yaml" | while read source_file; do
             rel_path=${source_file#upstream/}
             dir_name=$(dirname "$rel_path")
@@ -98,77 +192,13 @@ jobs:
 
             echo "🔍 Parsing: $rel_path"
 
-            awk '
-              function trim(s) {
-                gsub(/^[ \t]+|[ \t]+$/, "", s)
-                return s
-              }
-
-              {
-                line=$0
-                gsub(/\r/, "", line)
-
-                # remove yaml list prefix
-                sub(/^[ \t]*-[ \t]*/, "", line)
-
-                # remove inline comments
-                sub(/[ \t]*#.*/, "", line)
-
-                # normalize spaces around commas
-                gsub(/[ \t]*,[ \t]*/, ",", line)
-
-                split(line, arr, ",")
-                type=trim(arr[1])
-                value=trim(arr[2])
-
-                if (value == "") next
-
-                if (type == "DOMAIN") {
-                  print value
-                } else if (type == "DOMAIN-SUFFIX") {
-                  print "+." value
-                } else if (type == "DOMAIN-KEYWORD") {
-                  print "*" value "*"
-                }
-              }
-            ' "$source_file" | sort -u > "$domain_list"
-
-            awk '
-              function trim(s) {
-                gsub(/^[ \t]+|[ \t]+$/, "", s)
-                return s
-              }
-
-              {
-                line=$0
-                gsub(/\r/, "", line)
-
-                # remove yaml list prefix
-                sub(/^[ \t]*-[ \t]*/, "", line)
-
-                # remove inline comments
-                sub(/[ \t]*#.*/, "", line)
-
-                # normalize spaces around commas
-                gsub(/[ \t]*,[ \t]*/, ",", line)
-
-                split(line, arr, ",")
-                type=trim(arr[1])
-                value=trim(arr[2])
-
-                if (value == "") next
-
-                if (type == "IP-CIDR" || type == "IP-CIDR6") {
-                  print value
-                }
-              }
-            ' "$source_file" | sort -u > "$ip_list"
+            export SOURCE_FILE="$source_file"
+            export DOMAIN_LIST="$domain_list"
+            export IP_LIST="$ip_list"
+            python3 convert_upstream.py
 
             domain_count=$(wc -l < "$domain_list" | tr -d ' ')
             ip_count=$(wc -l < "$ip_list" | tr -d ' ')
-
-            echo "📊 Domain count: $domain_count"
-            echo "📊 IP count: $ip_count"
 
             if [ "$domain_count" -gt 0 ]; then
               if [[ "$base_name" == *_Domain ]]; then
@@ -208,6 +238,8 @@ jobs:
 
             rm -f "$domain_list" "$ip_list"
           done
+
+          rm -f convert_upstream.py convert_upstream.py.b64
 
       - name: Create Geosite Converter
         run: |
