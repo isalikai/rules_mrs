@@ -85,7 +85,7 @@ jobs:
           rm -rf rules self
           mkdir -p rules
 
-          find upstream -type f \( -name "*_Domain.yaml" -o -name "*_IP.yaml" \) | while read source_file; do
+          find upstream -type f -name "*.yaml" | while read source_file; do
             rel_path=${source_file#upstream/}
             dir_name=$(dirname "$rel_path")
             base_name=$(basename "$source_file" .yaml)
@@ -93,24 +93,120 @@ jobs:
             target_dir="rules/$dir_name"
             mkdir -p "$target_dir"
 
-            if [[ "$base_name" == *_Domain ]]; then
-              rule_type="domain"
-            elif [[ "$base_name" == *_IP ]]; then
-              rule_type="ipcidr"
+            domain_list=$(mktemp)
+            ip_list=$(mktemp)
+
+            echo "🔍 Parsing: $rel_path"
+
+            awk '
+              function trim(s) {
+                gsub(/^[ \t]+|[ \t]+$/, "", s)
+                return s
+              }
+
+              {
+                line=$0
+                gsub(/\r/, "", line)
+
+                # remove yaml list prefix
+                sub(/^[ \t]*-[ \t]*/, "", line)
+
+                # remove inline comments
+                sub(/[ \t]*#.*/, "", line)
+
+                # normalize spaces around commas
+                gsub(/[ \t]*,[ \t]*/, ",", line)
+
+                split(line, arr, ",")
+                type=trim(arr[1])
+                value=trim(arr[2])
+
+                if (value == "") next
+
+                if (type == "DOMAIN") {
+                  print value
+                } else if (type == "DOMAIN-SUFFIX") {
+                  print "+." value
+                } else if (type == "DOMAIN-KEYWORD") {
+                  print "*" value "*"
+                }
+              }
+            ' "$source_file" | sort -u > "$domain_list"
+
+            awk '
+              function trim(s) {
+                gsub(/^[ \t]+|[ \t]+$/, "", s)
+                return s
+              }
+
+              {
+                line=$0
+                gsub(/\r/, "", line)
+
+                # remove yaml list prefix
+                sub(/^[ \t]*-[ \t]*/, "", line)
+
+                # remove inline comments
+                sub(/[ \t]*#.*/, "", line)
+
+                # normalize spaces around commas
+                gsub(/[ \t]*,[ \t]*/, ",", line)
+
+                split(line, arr, ",")
+                type=trim(arr[1])
+                value=trim(arr[2])
+
+                if (value == "") next
+
+                if (type == "IP-CIDR" || type == "IP-CIDR6") {
+                  print value
+                }
+              }
+            ' "$source_file" | sort -u > "$ip_list"
+
+            domain_count=$(wc -l < "$domain_list" | tr -d ' ')
+            ip_count=$(wc -l < "$ip_list" | tr -d ' ')
+
+            echo "📊 Domain count: $domain_count"
+            echo "📊 IP count: $ip_count"
+
+            if [ "$domain_count" -gt 0 ]; then
+              if [[ "$base_name" == *_Domain ]]; then
+                domain_target="$target_dir/$base_name.mrs"
+              else
+                domain_target="$target_dir/${base_name}_Domain.mrs"
+              fi
+
+              echo "🔄 Converting domain rules: $rel_path -> $domain_target"
+              ./mihomo convert-ruleset domain text "$domain_list" "$domain_target"
+
+              if [[ ! -s "$domain_target" ]]; then
+                echo "❌ Empty domain mrs generated: $domain_target"
+                exit 1
+              fi
             else
-              echo "⏭️ Skip unsupported file: $rel_path"
-              continue
+              echo "⚠️ No domain rules found in $rel_path"
             fi
 
-            target_file="$target_dir/$base_name.mrs"
+            if [ "$ip_count" -gt 0 ]; then
+              if [[ "$base_name" == *_IP ]]; then
+                ip_target="$target_dir/$base_name.mrs"
+              else
+                ip_target="$target_dir/${base_name}_IP.mrs"
+              fi
 
-            echo "🔄 Converting: $rel_path -> $target_file (Type: $rule_type)"
-            ./mihomo convert-ruleset "$rule_type" yaml "$source_file" "$target_file"
+              echo "🔄 Converting IP rules: $rel_path -> $ip_target"
+              ./mihomo convert-ruleset ipcidr text "$ip_list" "$ip_target"
 
-            if [[ ! -s "$target_file" ]]; then
-              echo "❌ Empty mrs generated: $target_file"
-              exit 1
+              if [[ ! -s "$ip_target" ]]; then
+                echo "❌ Empty ip mrs generated: $ip_target"
+                exit 1
+              fi
+            else
+              echo "⚠️ No IP rules found in $rel_path"
             fi
+
+            rm -f "$domain_list" "$ip_list"
           done
 
       - name: Create Geosite Converter
