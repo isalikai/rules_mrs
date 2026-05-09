@@ -98,14 +98,14 @@ jobs:
           ./v2dat unpack geosite -o "$WORK_DIR" -f category-porn "$GEOSITE_DAT"
 
           echo "📂 Files in work dir:"
-          find "$WORK_DIR" -type f -maxdepth 2 -print
+          find "$WORK_DIR" -maxdepth 2 -type f -print
 
           RAW_TXT=$(find "$WORK_DIR" -type f -name "*category-porn*.txt" | head -n 1)
 
           if [ -z "$RAW_TXT" ]; then
             echo "❌ category-porn txt file not found"
             echo "📂 Current files:"
-            find "$WORK_DIR" -type f -maxdepth 2 -print
+            find "$WORK_DIR" -maxdepth 2 -type f -print
             exit 1
           fi
 
@@ -127,6 +127,10 @@ jobs:
             fi
 
             case "$line" in
+              domain:*)
+                domain="${line#domain:}"
+                echo "DOMAIN-SUFFIX,$domain" >> "$CLEAN_FILE"
+                ;;
               full:*)
                 domain="${line#full:}"
                 echo "DOMAIN,$domain" >> "$CLEAN_FILE"
@@ -137,6 +141,9 @@ jobs:
                 ;;
               regexp:*)
                 echo "⚠️ Skip regexp rule unsupported by mrs domain text: $line"
+                ;;
+              include:*)
+                echo "⚠️ Skip include rule: $line"
                 ;;
               *)
                 echo "DOMAIN-SUFFIX,$line" >> "$CLEAN_FILE"
@@ -155,7 +162,14 @@ jobs:
           fi
 
           echo "📄 Clean Mihomo rule preview:"
-          head -n 30 "$CLEAN_FILE"
+          head -n 50 "$CLEAN_FILE"
+
+          echo "🔎 Checking for wrong domain prefix:"
+          if grep -q 'DOMAIN-SUFFIX,domain:' "$CLEAN_FILE"; then
+            echo "❌ Found invalid DOMAIN-SUFFIX,domain:* rules"
+            grep 'DOMAIN-SUFFIX,domain:' "$CLEAN_FILE" | head
+            exit 1
+          fi
 
           echo "🔄 Converting Porn_Domain.list to Porn_Domain.mrs..."
           ./mihomo convert-ruleset domain text "$CLEAN_FILE" "$TARGET_FILE"
