@@ -116,170 +116,158 @@ jobs:
       - name: Create Geosite Converter
         run: |
           cat > convert_geosite.py <<'PY'
-import os
-import re
-from pathlib import Path
-from itertools import product
-
-raw_txt = Path(os.environ["RAW_TXT"])
-clean_file = Path(os.environ["CLEAN_FILE"])
-
-rules = set()
-skipped_regexp = []
-expanded_regexp_count = 0
-
-def add_rule(rule_type, value):
-    value = value.strip().lower().strip(".")
-    if not value:
-        return
-    if ":" in value:
-        return
-    if rule_type != "DOMAIN-KEYWORD" and "." not in value:
-        return
-    rules.add(f"{rule_type},{value}")
-
-def expand_simple_regex(pattern, max_expand=10000):
-    p = pattern.strip()
-
-    if p.startswith("regexp:"):
-        p = p[len("regexp:"):]
-
-    p = re.sub(r'^\(\^\|\\?\.\)', '', p)
-    p = re.sub(r'^\(\^\|\.\)', '', p)
-
-    if p.endswith("$"):
-        p = p[:-1]
-
-    p = p.replace(r"\.", ".")
-
-    if "+" in p or "*" in p:
-        return None
-
-    if re.search(r'\{\d+,\d*\}', p):
-        return None
-
-    if "?" in p:
-        return None
-
-    tokens = []
-    i = 0
-
-    while i < len(p):
-        ch = p[i]
-
-        if ch == "(":
-            j = p.find(")", i)
-            if j == -1:
-                return None
-
-            group = p[i + 1:j]
-            parts = group.split("|")
-
-            if not parts or any(not x for x in parts):
-                return None
-
-            if any(any(c in x for c in "()[]{}+*?\\^$") for x in parts):
-                return None
-
-            tokens.append([x.lower() for x in parts])
-            i = j + 1
-            continue
-
-        if ch == "[":
-            j = p.find("]", i)
-            if j == -1:
-                return None
-
-            body = p[i + 1:j]
-
-            if body == "0-9":
-                chars = list("0123456789")
-            elif body == "1-9":
-                chars = list("123456789")
-            elif body == "a-z":
-                chars = list("abcdefghijklmnopqrstuvwxyz")
-            elif body == "A-Z":
-                chars = list("abcdefghijklmnopqrstuvwxyz")
-            elif re.fullmatch(r'[0-9a-zA-Z]+', body):
-                chars = list(body.lower())
-            else:
-                return None
-
-            i = j + 1
-
-            repeat = 1
-            m = re.match(r'\{(\d+)\}', p[i:])
-            if m:
-                repeat = int(m.group(1))
-                i += len(m.group(0))
-
-            if repeat > 4:
-                return None
-
-            for _ in range(repeat):
-                tokens.append(chars)
-
-            continue
-
-        if ch in "^$":
-            i += 1
-            continue
-
-        if ch in "{}|+*?\\":
-            return None
-
-        tokens.append([ch.lower()])
-        i += 1
-
-    total = 1
-    for t in tokens:
-        total *= len(t)
-        if total > max_expand:
-            return None
-
-    results = []
-    for item in product(*tokens):
-        domain = "".join(item).strip(".").lower()
-        if "." in domain and not any(c in domain for c in "()[]{}|\\^$"):
-            results.append(domain)
-
-    return results or None
-
-for raw_line in raw_txt.read_text(encoding="utf-8", errors="ignore").splitlines():
-    line = raw_line.strip().replace("\r", "")
-
-    if not line:
-        continue
-
-    if line.startswith("domain:"):
-        add_rule("DOMAIN-SUFFIX", line[len("domain:"):])
-    elif line.startswith("full:"):
-        add_rule("DOMAIN", line[len("full:"):])
-    elif line.startswith("keyword:"):
-        add_rule("DOMAIN-KEYWORD", line[len("keyword:"):])
-    elif line.startswith("regexp:"):
-        expanded = expand_simple_regex(line)
-        if expanded:
-            expanded_regexp_count += len(expanded)
-            for domain in expanded:
-                add_rule("DOMAIN-SUFFIX", domain)
-        else:
-            skipped_regexp.append(line)
-    elif line.startswith("include:"):
-        continue
-    else:
-        add_rule("DOMAIN-SUFFIX", line)
-
-clean_file.write_text("\n".join(sorted(rules)) + "\n", encoding="utf-8")
-
-print(f"📊 Expanded regexp domain count: {expanded_regexp_count}")
-print(f"⚠️ Skipped regexp count: {len(skipped_regexp)}")
-
-if skipped_regexp:
-    print("⚠️ Skipped regexp preview:")
-    for item in skipped_regexp[:50]:
-        print(item)
-PY
+          import os
+          import re
+          from pathlib import Path
+          from itertools import product
+          
+          raw_txt = Path(os.environ["RAW_TXT"])
+          clean_file = Path(os.environ["CLEAN_FILE"])
+          
+          rules = set()
+          skipped_regexp = []
+          expanded_regexp_count = 0
+          
+          def add_rule(rule_type, value):
+              value = value.strip().lower().strip(".")
+              if not value:
+                  return
+              if ":" in value:
+                  return
+              if rule_type != "DOMAIN-KEYWORD" and "." not in value:
+                  return
+              rules.add(f"{rule_type},{value}")
+          
+          def expand_simple_regex(pattern, max_expand=10000):
+              p = pattern.strip()
+          
+              if p.startswith("regexp:"):
+                  p = p[len("regexp:"):]
+          
+              p = re.sub(r'^\(\^\|\\?\.\)', '', p)
+              p = re.sub(r'^\(\^\|\.\)', '', p)
+          
+              if p.endswith("$"):
+                  p = p[:-1]
+          
+              p = p.replace(r"\.", ".")
+          
+              if "+" in p or "*" in p:
+                  return None
+          
+              if re.search(r'\{\d+,\d*\}', p):
+                  return None
+          
+              if "?" in p:
+                  return None
+          
+              tokens = []
+              i = 0
+          
+              while i < len(p):
+                  ch = p[i]
+          
+                  if ch == "(":
+                      j = p.find(")", i)
+                      if j == -1:
+                          return None
+                      group = p[i + 1:j]
+                      parts = group.split("|")
+                      if not parts or any(not x for x in parts):
+                          return None
+                      if any(any(c in x for c in "()[]{}+*?\\^$") for x in parts):
+                          return None
+                      tokens.append([x.lower() for x in parts])
+                      i = j + 1
+                      continue
+          
+                  if ch == "[":
+                      j = p.find("]", i)
+                      if j == -1:
+                          return None
+                      body = p[i + 1:j]
+          
+                      if body == "0-9":
+                          chars = list("0123456789")
+                      elif body == "1-9":
+                          chars = list("123456789")
+                      elif body == "a-z":
+                          chars = list("abcdefghijklmnopqrstuvwxyz")
+                      elif body == "A-Z":
+                          chars = list("abcdefghijklmnopqrstuvwxyz")
+                      elif re.fullmatch(r'[0-9a-zA-Z]+', body):
+                          chars = list(body.lower())
+                      else:
+                          return None
+          
+                      i = j + 1
+                      repeat = 1
+                      m = re.match(r'\{(\d+)\}', p[i:])
+                      if m:
+                          repeat = int(m.group(1))
+                          i += len(m.group(0))
+                      if repeat > 4:
+                          return None
+                      for _ in range(repeat):
+                          tokens.append(chars)
+                      continue
+          
+                  if ch in "^$":
+                      i += 1
+                      continue
+          
+                  if ch in "{}|+*?\\":
+                      return None
+          
+                  tokens.append([ch.lower()])
+                  i += 1
+          
+              total = 1
+              for t in tokens:
+                  total *= len(t)
+                  if total > max_expand:
+                      return None
+          
+              results = []
+              for item in product(*tokens):
+                  domain = "".join(item).strip(".").lower()
+                  if "." in domain and not any(c in domain for c in "()[]{}|\\^$"):
+                      results.append(domain)
+              return results or None
+          
+          for raw_line in raw_txt.read_text(encoding="utf-8", errors="ignore").splitlines():
+              line = raw_line.strip().replace("\r", "")
+              if not line:
+                  continue
+          
+              if line.startswith("domain:"):
+                  add_rule("DOMAIN-SUFFIX", line[len("domain:"):])
+              elif line.startswith("full:"):
+                  add_rule("DOMAIN", line[len("full:"):])
+              elif line.startswith("keyword:"):
+                  add_rule("DOMAIN-KEYWORD", line[len("keyword:"):])
+              elif line.startswith("regexp:"):
+                  expanded = expand_simple_regex(line)
+                  if expanded:
+                      expanded_regexp_count += len(expanded)
+                      for domain in expanded:
+                          add_rule("DOMAIN-SUFFIX", domain)
+                  else:
+                      skipped_regexp.append(line)
+              elif line.startswith("include:"):
+                  continue
+              else:
+                  add_rule("DOMAIN-SUFFIX", line)
+          
+          clean_file.write_text("\n".join(sorted(rules)) + "\n", encoding="utf-8")
+          
+          print(f"📊 Expanded regexp domain count: {expanded_regexp_count}")
+          print(f"⚠️ Skipped regexp count: {len(skipped_regexp)}")
+          if skipped_regexp:
+              print("⚠️ Skipped regexp preview:")
+              for item in skipped_regexp[:50]:
+                  print(item)
+          PY
 
           python3 -m py_compile convert_geosite.py
 
