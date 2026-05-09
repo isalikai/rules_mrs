@@ -21,10 +21,42 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq gzip wget curl golang-go
 
-          LATEST_VERSION=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" | jq -r .tag_name)
-          echo "Downloading Mihomo $LATEST_VERSION..."
+          echo "🔎 Fetching latest Mihomo release info..."
 
-          wget "https://github.com/MetaCubeX/mihomo/releases/download/$LATEST_VERSION/mihomo-linux-amd64-$LATEST_VERSION.gz" -O mihomo.gz
+          RELEASE_JSON=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "User-Agent: github-actions" \
+            "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest")
+
+          LATEST_VERSION=$(echo "$RELEASE_JSON" | jq -r '.tag_name // empty')
+
+          if [ -z "$LATEST_VERSION" ] || [ "$LATEST_VERSION" = "null" ]; then
+            echo "❌ Failed to get Mihomo latest version."
+            echo "📄 GitHub API response:"
+            echo "$RELEASE_JSON"
+            exit 1
+          fi
+
+          echo "✅ Latest Mihomo version: $LATEST_VERSION"
+
+          ASSET_URL=$(echo "$RELEASE_JSON" | jq -r '
+            .assets[]
+            | select(.name | test("^mihomo-linux-amd64-.*\\.gz$"))
+            | .browser_download_url
+          ' | head -n 1)
+
+          if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "❌ Failed to find linux amd64 mihomo asset."
+            echo "📦 Available assets:"
+            echo "$RELEASE_JSON" | jq -r '.assets[].name'
+            exit 1
+          fi
+
+          echo "⬇️ Downloading Mihomo from:"
+          echo "$ASSET_URL"
+
+          curl -fL "$ASSET_URL" -o mihomo.gz
+
           gzip -d mihomo.gz
           chmod +x mihomo
           ./mihomo -v
@@ -170,6 +202,14 @@ jobs:
             grep 'DOMAIN-SUFFIX,domain:' "$CLEAN_FILE" | head
             exit 1
           fi
+
+          echo "🔎 Checking for other wrong prefixes:"
+          grep -n '^DOMAIN-SUFFIX,full:' "$CLEAN_FILE" | head || true
+          grep -n '^DOMAIN-SUFFIX,keyword:' "$CLEAN_FILE" | head || true
+          grep -n '^DOMAIN-SUFFIX,regexp:' "$CLEAN_FILE" | head || true
+
+          echo "📄 Saving readable list..."
+          cp "$CLEAN_FILE" "$SELF_DIR/Porn_Domain.list"
 
           echo "🔄 Converting Porn_Domain.list to Porn_Domain.mrs..."
           ./mihomo convert-ruleset domain text "$CLEAN_FILE" "$TARGET_FILE"
