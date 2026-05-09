@@ -305,7 +305,20 @@ jobs:
                   print(item)
           PY
 
-          sed -i 's/^          //' convert_geosite.py
+          python3 - <<'PYFIX'
+          from pathlib import Path
+          p = Path("convert_geosite.py")
+          text = p.read_text(encoding="utf-8")
+          lines = text.splitlines()
+          fixed = []
+          for line in lines:
+              if line.startswith("          "):
+                  fixed.append(line[10:])
+              else:
+                  fixed.append(line)
+          p.write_text("\n".join(fixed) + "\n", encoding="utf-8")
+          PYFIX
+
           python3 -m py_compile convert_geosite.py
 
       - name: Convert Geosite Porn Rules
