@@ -19,7 +19,7 @@ jobs:
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y jq gzip wget curl golang-go python3
+          sudo apt-get install -y jq gzip wget curl golang-go python3 coreutils
 
       - name: Setup Mihomo
         run: |
@@ -115,211 +115,91 @@ jobs:
 
       - name: Create Geosite Converter
         run: |
-          cat > convert_geosite.py <<'PY'
-          import os
-          import re
-          from pathlib import Path
-          from itertools import product
-
-          raw_txt = Path(os.environ["RAW_TXT"])
-          clean_file = Path(os.environ["CLEAN_FILE"])
-
-          rules = set()
-          skipped_regexp = []
-          expanded_regexp_count = 0
-          skipped_keyword_count = 0
-
-          def normalize_domain(value: str) -> str:
-              return value.strip().lower().strip(".")
-
-          def is_safe_domain(value: str) -> bool:
-              if not value:
-                  return False
-              if ":" in value or "/" in value or "," in value or " " in value:
-                  return False
-              if "." not in value:
-                  return False
-              if any(c in value for c in "()[]{}|\\^$"):
-                  return False
-              return True
-
-          def add_suffix(value: str):
-              value = normalize_domain(value)
-              if is_safe_domain(value):
-                  rules.add(f"+.{value}")
-
-          def add_full(value: str):
-              value = normalize_domain(value)
-              if is_safe_domain(value):
-                  rules.add(value)
-
-          def expand_simple_regex(pattern: str, max_expand: int = 20000):
-              p = pattern.strip()
-
-              if p.startswith("regexp:"):
-                  p = p[len("regexp:"):]
-
-              p = re.sub(r'^\(\^\|\\?\.\)', '', p)
-              p = re.sub(r'^\(\^\|\.\)', '', p)
-
-              if p.endswith("$"):
-                  p = p[:-1]
-
-              p = p.replace(r"\.", ".")
-
-              if "+" in p or "*" in p:
-                  return None
-
-              if re.search(r'\{\d+,\d*\}', p):
-                  return None
-
-              if "?" in p:
-                  return None
-
-              tokens = []
-              i = 0
-
-              while i < len(p):
-                  ch = p[i]
-
-                  if ch == "(":
-                      j = p.find(")", i)
-                      if j == -1:
-                          return None
-
-                      group = p[i + 1:j]
-                      parts = group.split("|")
-
-                      if not parts or any(not x for x in parts):
-                          return None
-
-                      if any(any(c in x for c in "()[]{}+*?\\^$") for x in parts):
-                          return None
-
-                      tokens.append([x.lower() for x in parts])
-                      i = j + 1
-                      continue
-
-                  if ch == "[":
-                      j = p.find("]", i)
-                      if j == -1:
-                          return None
-
-                      body = p[i + 1:j]
-
-                      if body == "0-9":
-                          chars = list("0123456789")
-                      elif body == "1-9":
-                          chars = list("123456789")
-                      elif body == "a-z":
-                          chars = list("abcdefghijklmnopqrstuvwxyz")
-                      elif body == "A-Z":
-                          chars = list("abcdefghijklmnopqrstuvwxyz")
-                      elif re.fullmatch(r'[0-9a-zA-Z]+', body):
-                          chars = list(body.lower())
-                      else:
-                          return None
-
-                      i = j + 1
-
-                      repeat = 1
-                      m = re.match(r'\{(\d+)\}', p[i:])
-                      if m:
-                          repeat = int(m.group(1))
-                          i += len(m.group(0))
-
-                      if repeat > 4:
-                          return None
-
-                      for _ in range(repeat):
-                          tokens.append(chars)
-
-                      continue
-
-                  if ch in "^$":
-                      i += 1
-                      continue
-
-                  if ch in "{}|+*?\\":
-                      return None
-
-                  tokens.append([ch.lower()])
-                  i += 1
-
-              total = 1
-              for t in tokens:
-                  total *= len(t)
-                  if total > max_expand:
-                      return None
-
-              results = []
-              for item in product(*tokens):
-                  domain = normalize_domain("".join(item))
-                  if is_safe_domain(domain):
-                      results.append(domain)
-
-              return results or None
-
-          for raw_line in raw_txt.read_text(encoding="utf-8", errors="ignore").splitlines():
-              line = raw_line.strip().replace("\r", "")
-
-              if not line:
-                  continue
-
-              if line.startswith("domain:"):
-                  add_suffix(line[len("domain:"):])
-                  continue
-
-              if line.startswith("full:"):
-                  add_full(line[len("full:"):])
-                  continue
-
-              if line.startswith("keyword:"):
-                  skipped_keyword_count += 1
-                  continue
-
-              if line.startswith("regexp:"):
-                  expanded = expand_simple_regex(line)
-                  if expanded:
-                      expanded_regexp_count += len(expanded)
-                      for domain in expanded:
-                          add_suffix(domain)
-                  else:
-                      skipped_regexp.append(line)
-                  continue
-
-              if line.startswith("include:"):
-                  continue
-
-              add_suffix(line)
-
-          clean_file.write_text("\n".join(sorted(rules)) + "\n", encoding="utf-8")
-
-          print(f"📊 Expanded regexp domain count: {expanded_regexp_count}")
-          print(f"⚠️ Skipped regexp count: {len(skipped_regexp)}")
-          print(f"⚠️ Skipped keyword count: {skipped_keyword_count}")
-
-          if skipped_regexp:
-              print("⚠️ Skipped regexp preview:")
-              for item in skipped_regexp[:50]:
-                  print(item)
-          PY
-
-          python3 - <<'PYFIX'
-          from pathlib import Path
-          p = Path("convert_geosite.py")
-          text = p.read_text(encoding="utf-8")
-          lines = text.splitlines()
-          fixed = []
-          for line in lines:
-              if line.startswith("          "):
-                  fixed.append(line[10:])
-              else:
-                  fixed.append(line)
-          p.write_text("\n".join(fixed) + "\n", encoding="utf-8")
-          PYFIX
-
+          set -e
+          cat > convert_geosite.py.b64 <<'B64'
+          aW1wb3J0IG9zCmltcG9ydCByZQpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKZnJvbSBpdGVydG9v
+          bHMgaW1wb3J0IHByb2R1Y3QKCnJhd190eHQgPSBQYXRoKG9zLmVudmlyb25bIlJBV19UWFQiXSkK
+          Y2xlYW5fZmlsZSA9IFBhdGgob3MuZW52aXJvblsiQ0xFQU5fRklMRSJdKQoKcnVsZXMgPSBzZXQo
+          KQpza2lwcGVkX3JlZ2V4cCA9IFtdCmV4cGFuZGVkX3JlZ2V4cF9jb3VudCA9IDAKc2tpcHBlZF9r
+          ZXl3b3JkX2NvdW50ID0gMAoKZGVmIG5vcm1hbGl6ZV9kb21haW4odmFsdWU6IHN0cikgLT4gc3Ry
+          OgogICAgcmV0dXJuIHZhbHVlLnN0cmlwKCkubG93ZXIoKS5zdHJpcCgiLiIpCgpkZWYgaXNfc2Fm
+          ZV9kb21haW4odmFsdWU6IHN0cikgLT4gYm9vbDoKICAgIGlmIG5vdCB2YWx1ZToKICAgICAgICBy
+          ZXR1cm4gRmFsc2UKICAgIGlmICI6IiBpbiB2YWx1ZSBvciAiLyIgaW4gdmFsdWUgb3IgIiwiIGlu
+          IHZhbHVlIG9yICIgIiBpbiB2YWx1ZToKICAgICAgICByZXR1cm4gRmFsc2UKICAgIGlmICIuIiBu
+          b3QgaW4gdmFsdWU6CiAgICAgICAgcmV0dXJuIEZhbHNlCiAgICBpZiBhbnkoYyBpbiB2YWx1ZSBm
+          b3IgYyBpbiAiKClbXXt9fFxcXiQiKToKICAgICAgICByZXR1cm4gRmFsc2UKICAgIHJldHVybiBU
+          cnVlCgpkZWYgYWRkX3N1ZmZpeCh2YWx1ZTogc3RyKToKICAgIHZhbHVlID0gbm9ybWFsaXplX2Rv
+          bWFpbih2YWx1ZSkKICAgIGlmIGlzX3NhZmVfZG9tYWluKHZhbHVlKToKICAgICAgICBydWxlcy5h
+          ZGQoZiIrLnt2YWx1ZX0iKQoKZGVmIGFkZF9mdWxsKHZhbHVlOiBzdHIpOgogICAgdmFsdWUgPSBu
+          b3JtYWxpemVfZG9tYWluKHZhbHVlKQogICAgaWYgaXNfc2FmZV9kb21haW4odmFsdWUpOgogICAg
+          ICAgIHJ1bGVzLmFkZCh2YWx1ZSkKCmRlZiBleHBhbmRfc2ltcGxlX3JlZ2V4KHBhdHRlcm46IHN0
+          ciwgbWF4X2V4cGFuZDogaW50ID0gMjAwMDApOgogICAgcCA9IHBhdHRlcm4uc3RyaXAoKQoKICAg
+          IGlmIHAuc3RhcnRzd2l0aCgicmVnZXhwOiIpOgogICAgICAgIHAgPSBwW2xlbigicmVnZXhwOiIp
+          Ol0KCiAgICBwID0gcmUuc3ViKHInXlwoXF5cfFxcP1wuXCknLCAnJywgcCkKICAgIHAgPSByZS5z
+          dWIocideXChcXlx8XC5cKScsICcnLCBwKQoKICAgIGlmIHAuZW5kc3dpdGgoIiQiKToKICAgICAg
+          ICBwID0gcFs6LTFdCgogICAgcCA9IHAucmVwbGFjZShyIlwuIiwgIi4iKQoKICAgIGlmICIrIiBp
+          biBwIG9yICIqIiBpbiBwOgogICAgICAgIHJldHVybiBOb25lCgogICAgaWYgcmUuc2VhcmNoKHIn
+          XHtcZCssXGQqXH0nLCBwKToKICAgICAgICByZXR1cm4gTm9uZQoKICAgIGlmICI/IiBpbiBwOgog
+          ICAgICAgIHJldHVybiBOb25lCgogICAgdG9rZW5zID0gW10KICAgIGkgPSAwCgogICAgd2hpbGUg
+          aSA8IGxlbihwKToKICAgICAgICBjaCA9IHBbaV0KCiAgICAgICAgaWYgY2ggPT0gIigiOgogICAg
+          ICAgICAgICBqID0gcC5maW5kKCIpIiwgaSkKICAgICAgICAgICAgaWYgaiA9PSAtMToKICAgICAg
+          ICAgICAgICAgIHJldHVybiBOb25lCgogICAgICAgICAgICBncm91cCA9IHBbaSArIDE6al0KICAg
+          ICAgICAgICAgcGFydHMgPSBncm91cC5zcGxpdCgifCIpCgogICAgICAgICAgICBpZiBub3QgcGFy
+          dHMgb3IgYW55KG5vdCB4IGZvciB4IGluIHBhcnRzKToKICAgICAgICAgICAgICAgIHJldHVybiBO
+          b25lCgogICAgICAgICAgICBpZiBhbnkoYW55KGMgaW4geCBmb3IgYyBpbiAiKClbXXt9Kyo/XFxe
+          JCIpIGZvciB4IGluIHBhcnRzKToKICAgICAgICAgICAgICAgIHJldHVybiBOb25lCgogICAgICAg
+          ICAgICB0b2tlbnMuYXBwZW5kKFt4Lmxvd2VyKCkgZm9yIHggaW4gcGFydHNdKQogICAgICAgICAg
+          ICBpID0gaiArIDEKICAgICAgICAgICAgY29udGludWUKCiAgICAgICAgaWYgY2ggPT0gIlsiOgog
+          ICAgICAgICAgICBqID0gcC5maW5kKCJdIiwgaSkKICAgICAgICAgICAgaWYgaiA9PSAtMToKICAg
+          ICAgICAgICAgICAgIHJldHVybiBOb25lCgogICAgICAgICAgICBib2R5ID0gcFtpICsgMTpqXQoK
+          ICAgICAgICAgICAgaWYgYm9keSA9PSAiMC05IjoKICAgICAgICAgICAgICAgIGNoYXJzID0gbGlz
+          dCgiMDEyMzQ1Njc4OSIpCiAgICAgICAgICAgIGVsaWYgYm9keSA9PSAiMS05IjoKICAgICAgICAg
+          ICAgICAgIGNoYXJzID0gbGlzdCgiMTIzNDU2Nzg5IikKICAgICAgICAgICAgZWxpZiBib2R5ID09
+          ICJhLXoiOgogICAgICAgICAgICAgICAgY2hhcnMgPSBsaXN0KCJhYmNkZWZnaGlqa2xtbm9wcXJz
+          dHV2d3h5eiIpCiAgICAgICAgICAgIGVsaWYgYm9keSA9PSAiQS1aIjoKICAgICAgICAgICAgICAg
+          IGNoYXJzID0gbGlzdCgiYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoiKQogICAgICAgICAgICBl
+          bGlmIHJlLmZ1bGxtYXRjaChyJ1swLTlhLXpBLVpdKycsIGJvZHkpOgogICAgICAgICAgICAgICAg
+          Y2hhcnMgPSBsaXN0KGJvZHkubG93ZXIoKSkKICAgICAgICAgICAgZWxzZToKICAgICAgICAgICAg
+          ICAgIHJldHVybiBOb25lCgogICAgICAgICAgICBpID0gaiArIDEKCiAgICAgICAgICAgIHJlcGVh
+          dCA9IDEKICAgICAgICAgICAgbSA9IHJlLm1hdGNoKHInXHsoXGQrKVx9JywgcFtpOl0pCiAgICAg
+          ICAgICAgIGlmIG06CiAgICAgICAgICAgICAgICByZXBlYXQgPSBpbnQobS5ncm91cCgxKSkKICAg
+          ICAgICAgICAgICAgIGkgKz0gbGVuKG0uZ3JvdXAoMCkpCgogICAgICAgICAgICBpZiByZXBlYXQg
+          PiA0OgogICAgICAgICAgICAgICAgcmV0dXJuIE5vbmUKCiAgICAgICAgICAgIGZvciBfIGluIHJh
+          bmdlKHJlcGVhdCk6CiAgICAgICAgICAgICAgICB0b2tlbnMuYXBwZW5kKGNoYXJzKQoKICAgICAg
+          ICAgICAgY29udGludWUKCiAgICAgICAgaWYgY2ggaW4gIl4kIjoKICAgICAgICAgICAgaSArPSAx
+          CiAgICAgICAgICAgIGNvbnRpbnVlCgogICAgICAgIGlmIGNoIGluICJ7fXwrKj9cXCI6CiAgICAg
+          ICAgICAgIHJldHVybiBOb25lCgogICAgICAgIHRva2Vucy5hcHBlbmQoW2NoLmxvd2VyKCldKQog
+          ICAgICAgIGkgKz0gMQoKICAgIHRvdGFsID0gMQogICAgZm9yIHQgaW4gdG9rZW5zOgogICAgICAg
+          IHRvdGFsICo9IGxlbih0KQogICAgICAgIGlmIHRvdGFsID4gbWF4X2V4cGFuZDoKICAgICAgICAg
+          ICAgcmV0dXJuIE5vbmUKCiAgICByZXN1bHRzID0gW10KICAgIGZvciBpdGVtIGluIHByb2R1Y3Qo
+          KnRva2Vucyk6CiAgICAgICAgZG9tYWluID0gbm9ybWFsaXplX2RvbWFpbigiIi5qb2luKGl0ZW0p
+          KQogICAgICAgIGlmIGlzX3NhZmVfZG9tYWluKGRvbWFpbik6CiAgICAgICAgICAgIHJlc3VsdHMu
+          YXBwZW5kKGRvbWFpbikKCiAgICByZXR1cm4gcmVzdWx0cyBvciBOb25lCgpmb3IgcmF3X2xpbmUg
+          aW4gcmF3X3R4dC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IiwgZXJyb3JzPSJpZ25vcmUiKS5z
+          cGxpdGxpbmVzKCk6CiAgICBsaW5lID0gcmF3X2xpbmUuc3RyaXAoKS5yZXBsYWNlKCJcciIsICIi
+          KQoKICAgIGlmIG5vdCBsaW5lOgogICAgICAgIGNvbnRpbnVlCgogICAgaWYgbGluZS5zdGFydHN3
+          aXRoKCJkb21haW46Iik6CiAgICAgICAgYWRkX3N1ZmZpeChsaW5lW2xlbigiZG9tYWluOiIpOl0p
+          CiAgICAgICAgY29udGludWUKCiAgICBpZiBsaW5lLnN0YXJ0c3dpdGgoImZ1bGw6Iik6CiAgICAg
+          ICAgYWRkX2Z1bGwobGluZVtsZW4oImZ1bGw6Iik6XSkKICAgICAgICBjb250aW51ZQoKICAgIGlm
+          IGxpbmUuc3RhcnRzd2l0aCgia2V5d29yZDoiKToKICAgICAgICBza2lwcGVkX2tleXdvcmRfY291
+          bnQgKz0gMQogICAgICAgIGNvbnRpbnVlCgogICAgaWYgbGluZS5zdGFydHN3aXRoKCJyZWdleHA6
+          Iik6CiAgICAgICAgZXhwYW5kZWQgPSBleHBhbmRfc2ltcGxlX3JlZ2V4KGxpbmUpCiAgICAgICAg
+          aWYgZXhwYW5kZWQ6CiAgICAgICAgICAgIGV4cGFuZGVkX3JlZ2V4cF9jb3VudCArPSBsZW4oZXhw
+          YW5kZWQpCiAgICAgICAgICAgIGZvciBkb21haW4gaW4gZXhwYW5kZWQ6CiAgICAgICAgICAgICAg
+          ICBhZGRfc3VmZml4KGRvbWFpbikKICAgICAgICBlbHNlOgogICAgICAgICAgICBza2lwcGVkX3Jl
+          Z2V4cC5hcHBlbmQobGluZSkKICAgICAgICBjb250aW51ZQoKICAgIGlmIGxpbmUuc3RhcnRzd2l0
+          aCgiaW5jbHVkZToiKToKICAgICAgICBjb250aW51ZQoKICAgIGFkZF9zdWZmaXgobGluZSkKCmNs
+          ZWFuX2ZpbGUud3JpdGVfdGV4dCgiXG4iLmpvaW4oc29ydGVkKHJ1bGVzKSkgKyAiXG4iLCBlbmNv
+          ZGluZz0idXRmLTgiKQoKcHJpbnQoZiLwn5OKIEV4cGFuZGVkIHJlZ2V4cCBkb21haW4gY291bnQ6
+          IHtleHBhbmRlZF9yZWdleHBfY291bnR9IikKcHJpbnQoZiLimqDvuI8gU2tpcHBlZCByZWdleHAg
+          Y291bnQ6IHtsZW4oc2tpcHBlZF9yZWdleHApfSIpCnByaW50KGYi4pqg77iPIFNraXBwZWQga2V5
+          d29yZCBjb3VudDoge3NraXBwZWRfa2V5d29yZF9jb3VudH0iKQoKaWYgc2tpcHBlZF9yZWdleHA6
+          CiAgICBwcmludCgi4pqg77iPIFNraXBwZWQgcmVnZXhwIHByZXZpZXc6IikKICAgIGZvciBpdGVt
+          IGluIHNraXBwZWRfcmVnZXhwWzo1MF06CiAgICAgICAgcHJpbnQoaXRlbSkK
+          B64
+          base64 -d convert_geosite.py.b64 > convert_geosite.py
           python3 -m py_compile convert_geosite.py
+          echo "✅ convert_geosite.py syntax OK"
 
       - name: Convert Geosite Porn Rules
         run: |
@@ -407,7 +287,7 @@ jobs:
 
       - name: Cleanup
         run: |
-          rm -f mihomo v2dat convert_geosite.py
+          rm -f mihomo v2dat convert_geosite.py convert_geosite.py.b64
           rm -rf upstream tmp-geosite
 
       - name: Commit and Push Changes
